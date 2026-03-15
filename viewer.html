@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>autoproof — Proof Tree Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'SF Mono', 'Fira Code', monospace; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+
+  /* ── Header ── */
+  #header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: #161b22; border-bottom: 1px solid #30363d; }
+  #header h1 { font-size: 14px; font-weight: 600; color: #f0f6fc; }
+  #header .sep { color: #484f58; }
+  #iter-badge { font-size: 12px; color: #8b949e; }
+  #status-counts { display: flex; gap: 10px; margin-left: auto; font-size: 11px; }
+  .sc { padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+  .sc-verified  { background: #1a3a2a; color: #3fb950; }
+  .sc-partial   { background: #2d2a16; color: #d29922; }
+  .sc-failed    { background: #3a1a1a; color: #f85149; }
+  .sc-open      { background: #1a2636; color: #58a6ff; }
+  .sc-pruned    { background: #21262d; color: #484f58; }
+
+  /* ── Toolbar ── */
+  #toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 20px; background: #161b22; border-bottom: 1px solid #30363d; }
+  #toolbar label { font-size: 11px; color: #8b949e; }
+  select, button { background: #21262d; border: 1px solid #30363d; color: #e6edf3; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  select:hover, button:hover { border-color: #58a6ff; }
+  #auto-refresh-label { margin-left: auto; font-size: 11px; color: #8b949e; display: flex; align-items: center; gap: 6px; }
+  #refresh-dot { width: 7px; height: 7px; border-radius: 50%; background: #3fb950; display: inline-block; }
+  #refresh-dot.paused { background: #484f58; }
+
+  /* ── Layout ── */
+  #main { display: flex; height: calc(100vh - 82px); overflow: hidden; }
+
+  /* ── Tree panel ── */
+  #tree-panel { flex: 1; overflow: auto; padding: 24px 20px; }
+  .tree-level { display: flex; gap: 0; flex-direction: column; }
+  .tree-row { display: flex; align-items: flex-start; gap: 0; }
+  .tree-indent { width: 24px; flex-shrink: 0; position: relative; }
+  .tree-indent::before { content: ''; position: absolute; left: 11px; top: 0; bottom: 0; border-left: 1px solid #30363d; }
+  .tree-indent::after { content: ''; position: absolute; left: 11px; top: 18px; width: 13px; border-top: 1px solid #30363d; }
+  .tree-indent.last::before { height: 18px; }
+
+  .node-card {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 10px; margin: 3px 0; border-radius: 6px;
+    border: 1px solid #30363d; background: #161b22;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    max-width: 420px; min-width: 180px;
+  }
+  .node-card:hover { border-color: #58a6ff; background: #1c2333; }
+  .node-card.selected { border-color: #58a6ff; background: #1c2333; outline: 2px solid #58a6ff44; }
+  .node-card.status-verified  { border-left: 3px solid #3fb950; }
+  .node-card.status-partial   { border-left: 3px solid #d29922; }
+  .node-card.status-failed    { border-left: 3px solid #f85149; }
+  .node-card.status-open      { border-left: 3px solid #58a6ff; }
+  .node-card.status-pruned    { border-left: 3px solid #484f58; opacity: 0.5; }
+
+  .node-branch { font-size: 9px; font-weight: 700; color: #484f58; min-width: 32px; }
+  .node-label { font-size: 12px; color: #e6edf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .node-score { font-size: 11px; font-weight: 600; margin-left: 4px; }
+  .score-high { color: #3fb950; }
+  .score-mid  { color: #d29922; }
+  .score-low  { color: #f85149; }
+  .score-zero { color: #484f58; }
+  .node-visits { font-size: 10px; color: #484f58; }
+
+  /* ── Detail panel ── */
+  #detail-panel {
+    width: 420px; flex-shrink: 0; border-left: 1px solid #30363d;
+    background: #161b22; overflow-y: auto; display: flex; flex-direction: column;
+  }
+  #detail-panel.empty { align-items: center; justify-content: center; color: #484f58; font-size: 12px; }
+  #detail-header { padding: 14px 16px; border-bottom: 1px solid #30363d; }
+  #detail-header .dlabel { font-size: 13px; font-weight: 600; color: #f0f6fc; }
+  #detail-header .dbranch { font-size: 11px; color: #8b949e; margin-top: 2px; }
+  #detail-header .dstatement { font-size: 11px; color: #8b949e; margin-top: 6px; line-height: 1.5; }
+
+  .detail-section { padding: 10px 16px; border-bottom: 1px solid #21262d; }
+  .detail-section h3 { font-size: 10px; font-weight: 700; color: #484f58; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .stat-item { background: #0d1117; border-radius: 4px; padding: 6px 8px; }
+  .stat-key { font-size: 10px; color: #484f58; }
+  .stat-val { font-size: 13px; font-weight: 600; color: #e6edf3; margin-top: 1px; }
+
+  .attempt-card { background: #0d1117; border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid #21262d; }
+  .attempt-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .attempt-score { font-size: 12px; font-weight: 700; }
+  .attempt-iter { font-size: 10px; color: #484f58; }
+  .attempt-feedback { font-size: 11px; color: #8b949e; line-height: 1.5; max-height: 120px; overflow-y: auto; }
+  .attempt-feedback.expanded { max-height: none; }
+  .expand-btn { font-size: 10px; color: #58a6ff; background: none; border: none; cursor: pointer; padding: 2px 0; }
+
+  /* ── Status badge ── */
+  .status-badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .status-badge.verified { background: #1a3a2a; color: #3fb950; }
+  .status-badge.partial  { background: #2d2a16; color: #d29922; }
+  .status-badge.failed   { background: #3a1a1a; color: #f85149; }
+  .status-badge.open     { background: #1a2636; color: #58a6ff; }
+  .status-badge.pruned   { background: #21262d; color: #484f58; }
+
+  /* ── No data ── */
+  #no-data { display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; gap: 10px; color: #484f58; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>autoproof</h1>
+  <span class="sep">|</span>
+  <span>Proof Tree Viewer</span>
+  <span id="iter-badge">no snapshot loaded</span>
+  <div id="status-counts"></div>
+</div>
+
+<div id="toolbar">
+  <label>Snapshot:</label>
+  <select id="snapshot-select" onchange="loadSelected()"><option>—</option></select>
+  <button onclick="fetchSnapshots()">↻ Refresh list</button>
+  <div id="auto-refresh-label">
+    <span id="refresh-dot" class="paused"></span>
+    <span id="refresh-label">auto-refresh off</span>
+    <button onclick="toggleAutoRefresh()">Enable</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="tree-panel"><div id="no-data"><div>↑ Select a snapshot to view the proof tree</div></div></div>
+  <div id="detail-panel" class="empty">Click a node to inspect it</div>
+</div>
+
+<script>
+let currentTree = null;
+let selectedNodeId = null;
+let autoRefreshInterval = null;
+
+// ── Fetch snapshot list from server ──────────────────────────
+async function fetchSnapshots() {
+  try {
+    const r = await fetch('/snapshots');
+    const files = await r.json();
+    const sel = document.getElementById('snapshot-select');
+    sel.innerHTML = '';
+    if (files.length === 0) { sel.innerHTML = '<option>no snapshots yet</option>'; return; }
+    files.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = f;
+      sel.appendChild(opt);
+    });
+    // Auto-select latest
+    sel.value = files[files.length - 1];
+    loadSelected();
+  } catch(e) {
+    console.error('Could not fetch snapshots:', e);
+  }
+}
+
+async function loadSelected() {
+  const sel = document.getElementById('snapshot-select');
+  if (!sel.value || sel.value === '—') return;
+  await loadSnapshot(sel.value);
+}
+
+async function loadSnapshot(filename) {
+  try {
+    const r = await fetch('/logs/' + filename);
+    const tree = await r.json();
+    currentTree = tree;
+    renderTree(tree);
+    if (selectedNodeId && tree.nodes[selectedNodeId]) {
+      showDetail(selectedNodeId);
+    }
+  } catch(e) {
+    console.error('Could not load snapshot:', e);
+  }
+}
+
+// ── Auto-refresh ─────────────────────────────────────────────
+function toggleAutoRefresh() {
+  const dot = document.getElementById('refresh-dot');
+  const label = document.getElementById('refresh-label');
+  const btn = document.querySelector('#auto-refresh-label button');
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+    dot.classList.add('paused');
+    label.textContent = 'auto-refresh off';
+    btn.textContent = 'Enable';
+  } else {
+    dot.classList.remove('paused');
+    label.textContent = 'refreshing every 5s';
+    btn.textContent = 'Disable';
+    autoRefreshInterval = setInterval(async () => {
+      await fetchSnapshots();
+    }, 5000);
+  }
+}
+
+// ── Render tree ──────────────────────────────────────────────
+function renderTree(tree) {
+  const panel = document.getElementById('tree-panel');
+  const counts = {};
+  Object.values(tree.nodes).forEach(n => { counts[n.status] = (counts[n.status] || 0) + 1; });
+
+  document.getElementById('iter-badge').textContent = `iteration ${tree.iteration}`;
+
+  const sc = document.getElementById('status-counts');
+  sc.innerHTML = [
+    ['verified','verified'], ['partial','partial'], ['failed','failed'],
+    ['open','open'], ['pruned','pruned']
+  ].filter(([s]) => counts[s]).map(([s, cls]) =>
+    `<span class="sc sc-${cls}">${counts[s]} ${s}</span>`
+  ).join('');
+
+  if (!tree.root_id) { panel.innerHTML = '<div id="no-data"><div>Empty tree</div></div>'; return; }
+
+  panel.innerHTML = '';
+  const container = document.createElement('div');
+  container.className = 'tree-level';
+  renderNode(tree, tree.root_id, container, 0, true);
+  panel.appendChild(container);
+}
+
+function scoreClass(s) {
+  if (s >= 0.9) return 'score-high';
+  if (s >= 0.5) return 'score-mid';
+  if (s > 0)    return 'score-low';
+  return 'score-zero';
+}
+
+function renderNode(tree, nodeId, container, depth, isLast) {
+  const node = tree.nodes[nodeId];
+  if (!node) return;
+
+  const row = document.createElement('div');
+  row.className = 'tree-row';
+
+  // Indent lines for depth > 0
+  for (let i = 0; i < depth; i++) {
+    const ind = document.createElement('div');
+    ind.className = 'tree-indent' + (i === depth - 1 && isLast ? ' last' : '');
+    row.appendChild(ind);
+  }
+
+  // Node card
+  const card = document.createElement('div');
+  card.className = `node-card status-${node.status}` + (node.node_id === selectedNodeId ? ' selected' : '');
+  card.dataset.id = node.node_id;
+  card.onclick = () => { selectedNodeId = node.node_id; renderTree(tree); showDetail(node.node_id); };
+
+  const branch = document.createElement('span');
+  branch.className = 'node-branch';
+  branch.textContent = node.branch || '';
+
+  const label = document.createElement('span');
+  label.className = 'node-label';
+  label.title = node.label;
+  label.textContent = node.label;
+
+  const score = document.createElement('span');
+  score.className = 'node-score ' + scoreClass(node.best_score);
+  score.textContent = node.best_score > 0 ? node.best_score.toFixed(2) : '';
+
+  const visits = document.createElement('span');
+  visits.className = 'node-visits';
+  visits.textContent = node.visit_count > 0 ? `×${node.visit_count}` : '';
+
+  card.appendChild(branch);
+  card.appendChild(label);
+  card.appendChild(score);
+  card.appendChild(visits);
+  row.appendChild(card);
+  container.appendChild(row);
+
+  // Children
+  if (node.children && node.children.length > 0) {
+    node.children.forEach((childId, idx) => {
+      renderNode(tree, childId, container, depth + 1, idx === node.children.length - 1);
+    });
+  }
+}
+
+// ── Detail panel ─────────────────────────────────────────────
+function showDetail(nodeId) {
+  const node = currentTree.nodes[nodeId];
+  if (!node) return;
+  const panel = document.getElementById('detail-panel');
+  panel.classList.remove('empty');
+
+  const statusColors = { verified: '#3fb950', partial: '#d29922', failed: '#f85149', open: '#58a6ff', pruned: '#484f58' };
+  const sc = statusColors[node.status] || '#8b949e';
+
+  panel.innerHTML = `
+    <div id="detail-header">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span class="status-badge ${node.status}">${node.status}</span>
+        <span style="font-size:10px;color:#484f58">${node.branch}</span>
+      </div>
+      <div class="dlabel">${node.label}</div>
+      <div class="dstatement">${node.statement}</div>
+    </div>
+
+    <div class="detail-section">
+      <h3>MCTS Stats</h3>
+      <div class="stat-grid">
+        <div class="stat-item"><div class="stat-key">Best score</div><div class="stat-val" style="color:${sc}">${node.best_score.toFixed(3)}</div></div>
+        <div class="stat-item"><div class="stat-key">Mean value</div><div class="stat-val">${node.mean_value.toFixed(3)}</div></div>
+        <div class="stat-item"><div class="stat-key">Visits</div><div class="stat-val">${node.visit_count}</div></div>
+        <div class="stat-item"><div class="stat-key">Consec. failures</div><div class="stat-val">${node.consecutive_failures}</div></div>
+        <div class="stat-item"><div class="stat-key">Total value</div><div class="stat-val">${node.total_value.toFixed(3)}</div></div>
+        <div class="stat-item"><div class="stat-key">Depth</div><div class="stat-val">${node.depth}</div></div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Proof Attempts (${node.attempts.length})</h3>
+      ${node.attempts.length === 0 ? '<span style="font-size:11px;color:#484f58">No attempts yet</span>' :
+        node.attempts.slice().reverse().map((a, i) => {
+          const asc = scoreClass(a.verifier_score);
+          return `<div class="attempt-card">
+            <div class="attempt-meta">
+              <span class="attempt-score ${asc}">${a.verifier_score.toFixed(2)}</span>
+              <span class="attempt-iter">iter ${a.iteration}</span>
+            </div>
+            <div class="attempt-feedback" id="fb-${i}">${escHtml(a.verifier_feedback || '')}</div>
+            ${(a.verifier_feedback||'').length > 200 ? `<button class="expand-btn" onclick="toggleFeedback('fb-${i}', this)">show more</button>` : ''}
+          </div>`;
+        }).join('')
+      }
+    </div>
+  `;
+}
+
+function toggleFeedback(id, btn) {
+  const el = document.getElementById(id);
+  el.classList.toggle('expanded');
+  btn.textContent = el.classList.contains('expanded') ? 'show less' : 'show more';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Init ─────────────────────────────────────────────────────
+fetchSnapshots();
+</script>
+</body>
+</html>

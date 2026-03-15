@@ -1,0 +1,38 @@
+# Offline mode — runs entirely on Apple Silicon via MLX. No API key needed.
+# Models auto-download from HuggingFace on first run (~4GB each).
+#
+# Optional env vars:
+#   AUTOPROOF_JUDGE_MODEL — separate model for judging (default: same as prover)
+#   AUTOPROOF_DUAL_LOADED — keep both models in RAM (default: 1, set 0 if <16GB)
+
+[llm]
+provider = "local_mlx"
+model = "mlx-community/DeepSeek-Prover-V2-7B-4bit"
+temperature = 0.7
+max_tokens = 4096
+
+[verifier]
+use_lean4 = true
+lean4_project_path = "lean_project"
+lean4_timeout_seconds = 120
+require_formal_for_complete = true
+
+[mcts]
+exploration_constant = 1.414
+max_depth = 12
+max_children = 5
+max_failures_before_prune = 3
+penalty_on_failure = -0.3
+bonus_on_novelty = 0.2
+backprop_decay = 0.9
+
+[orchestrator]
+budget = 100
+snapshot_every = 5
+log_dir = "logs"
+verbose = true
+
+# MLX server mode (avoids model reload overhead):
+#   Terminal 1: mlx_lm.server --model mlx-community/DeepSeek-Prover-V2-7B-4bit --port 8081
+#   Terminal 2: export MLX_SERVER_URL=http://localhost:8081
+#   Then set: provider = "mlx_server"

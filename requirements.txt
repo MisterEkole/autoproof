@@ -1,0 +1,16 @@
+# Core (pick your provider — only one needed)
+#
+# API mode (cloud):
+#   pip install anthropic     # Anthropic Claude
+#   pip install openai        # OpenAI
+#
+# Offline mode (local, macOS Apple Silicon only):
+#   pip install mlx-lm        # MLX local inference
+#
+# Both (explore locally, verify key results via API):
+#   pip install anthropic mlx-lm
+
+
+anthropic>=0.40.0
+# openai>=1.50.0
+# mlx-lm>=0.24.0

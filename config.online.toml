@@ -1,0 +1,29 @@
+[llm]
+provider = "anthropic"        # anthropic | openai | local_mlx | mlx_server
+model = "claude-haiku-4-5-20251001"
+api_key = ""                  # or set ANTHROPIC_API_KEY env var
+temperature = 0.7
+max_tokens = 4096
+
+[verifier]
+use_lean4 = false
+lean4_project_path = "lean_project"
+lean4_timeout_seconds = 120
+llm_judge_model = "claude-haiku-4-5-20251001"
+llm_judge_temperature = 0.2
+require_formal_for_complete = true
+
+[mcts]
+exploration_constant = 1.414  # UCB1 C (sqrt(2) is standard)
+max_depth = 12
+max_children = 5
+max_failures_before_prune = 3
+penalty_on_failure = -0.3
+bonus_on_novelty = 0.2
+backprop_decay = 0.9          # score decay per level toward root
+
+[orchestrator]
+budget = 60
+snapshot_every = 5
+log_dir = "logs"
+verbose = true

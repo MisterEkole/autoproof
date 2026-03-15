@@ -1,0 +1,32 @@
+# autoproof configuration
+# Copy to config.toml and edit
+
+[llm]
+provider = "anthropic"                    # anthropic | openai | local
+model = "claude-sonnet-4-20250514"
+api_key = ""                              # or set ANTHROPIC_API_KEY env var
+temperature = 0.7                         # higher = more creative exploration
+max_tokens = 4096
+
+[verifier]
+use_lean4 = false                         # set true if Lean 4 is installed
+lean4_project_path = "lean_project"
+lean4_timeout_seconds = 120
+llm_judge_model = "claude-sonnet-4-20250514"
+llm_judge_temperature = 0.2               # low for consistent scoring
+require_formal_for_complete = true
+
+[mcts]
+exploration_constant = 1.414              # UCB1 C parameter (sqrt(2) is standard)
+max_depth = 12                            # max proof tree depth
+max_children = 5                          # max strategies per node
+max_failures_before_prune = 3             # prune after N failures
+penalty_on_failure = -0.3
+bonus_on_novelty = 0.2
+backprop_decay = 0.9                      # score decay per tree level
+
+[orchestrator]
+budget = 100                              # max iterations (proof attempts)
+snapshot_every = 5                        # save state every N iterations
+log_dir = "logs"
+verbose = true
