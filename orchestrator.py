@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Main agent loop: select → expand → attempt → verify → update → repeat.
 """
@@ -6,6 +5,12 @@ Main agent loop: select → expand → attempt → verify → update → repeat.
 from __future__ import annotations
 
 import argparse
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  
 import json
 import time
 from datetime import datetime, timezone
@@ -124,7 +129,7 @@ class Orchestrator:
             self._log(f"  UCB stats: visits={node.visit_count}, mean={node.mean_value:.3f}, "
                       f"failures={node.consecutive_failures}")
 
-            # 2. EXPAND (if node has been visited but has no children yet)
+            # 2. EXPAND
             if node.visit_count > 0 and not node.children and node.status == NodeStatus.PARTIAL:
                 self._log(f"  → Decomposing into sub-goals...")
                 self._expand_node(node)

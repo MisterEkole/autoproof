@@ -57,10 +57,10 @@ Runs fully on-device via [mlx-lm](https://github.com/ml-explore/mlx-lm). No API 
 
 | Role | Model | Size |
 |------|-------|------|
-| Prover | `mlx-community/DeepSeek-Prover-V2-7B-4bit` | ~4GB |
+| Prover | `mlx-community/Qwen2.5-Math-7B-Instruct-4bit` | ~4GB |
 | Judge | `mlx-community/Qwen2.5-7B-Instruct-4bit` | ~4GB |
 
-Use a separate judge model via `export AUTOPROOF_JUDGE_MODEL="mlx-community/Qwen2.5-7B-Instruct-4bit"`. Set `AUTOPROOF_DUAL_LOADED=0` if RAM is tight.
+Override the judge model via `export AUTOPROOF_JUDGE_MODEL="<model-id>"`. Set `AUTOPROOF_DUAL_LOADED=0` if RAM is tight.
 
 ## What to expect
 

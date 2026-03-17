@@ -228,7 +228,18 @@ Evaluate this proof attempt. Be strict."""
                 score = min(max(float(score_match.group(1)), 0.0), 1.0)
                 feedback = feedback_match.group(1) if feedback_match else "Partial parse"
                 return (score, feedback)
-            return (0.0, f"Judge response parsing failed: {content[:200]}")
+            # Plain-text fallback: infer score from keywords
+            low = re.search(
+                r'\b(invalid|incorrect|wrong|circular|fails?|incomplete|error|gap|missing|flawed)\b',
+                content, re.IGNORECASE,
+            )
+            high = re.search(
+                r'\b(correct|valid|complete|sound|rigorous|proven|verified)\b',
+                content, re.IGNORECASE,
+            )
+            inferred_score = 0.3 if (high and not low) else 0.1
+            feedback = content.strip()[:300] if content.strip() else "No feedback"
+            return (inferred_score, feedback)
 
     # ── DECOMPOSER ───────────────────────────────────────────────
 
