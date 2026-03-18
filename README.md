@@ -55,10 +55,16 @@ logs/                 tree snapshots saved every N iterations
 
 Runs fully on-device via [mlx-lm](https://github.com/ml-explore/mlx-lm). No API key needed.
 
-| Role | Model | Size |
-|------|-------|------|
-| Prover | `mlx-community/Qwen2.5-Math-7B-Instruct-4bit` | ~4GB |
-| Judge | `mlx-community/Qwen2.5-7B-Instruct-4bit` | ~4GB |
+| Role | Model | Size | RAM needed |
+|------|-------|------|------------|
+| Prover | `mlx-community/Qwen2.5-Math-7B-Instruct-4bit` | ~4GB | 16GB |
+| Judge | `mlx-community/Qwen2.5-7B-Instruct-4bit` | ~4GB | 16GB |
+
+The 7B model works for small, well-scoped problems (e.g. proving basic calculus identities or simple algebraic lemmas) but will fail on complex, multi-step proofs like Navier-Stokes. For better results with local inference, use the larger model:
+
+| Role | Model | Size | RAM needed |
+|------|-------|------|------------|
+| Prover | `mlx-community/Qwen2.5-Math-72B-Instruct-4bit` | ~40GB | 48GB+ |
 
 Override the judge model via `export AUTOPROOF_JUDGE_MODEL="<model-id>"`. Set `AUTOPROOF_DUAL_LOADED=0` if RAM is tight.
 
